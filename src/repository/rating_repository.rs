@@ -1,8 +1,10 @@
 use sqlx::{Database, Pool, Postgres};
 use async_trait::async_trait;
 use uuid::Uuid;
+use sqlx::postgres::PgRow;
+use sqlx::Row; 
 
-use crate::{entities::rating::CreateRatingResponse, errors::errors::InternalError};
+use crate::{entities::rating::{CreateRatingResponse, ListRatingResponse, Rating}, errors::errors::InternalError};
 
 pub struct DBRatingRepository<DB: Database> {
     pool: Pool<DB>,
@@ -17,6 +19,7 @@ impl<DB: Database> DBRatingRepository<DB> {
 #[async_trait]
 pub trait RatingRepository {
     async fn create_rating(&self, merchant_id: Uuid, rating: f32) -> Result<CreateRatingResponse, InternalError>;
+    async fn list_by_merchant(&self, merchant_id: Uuid) -> Result<ListRatingResponse, InternalError>;
 }
 
 #[async_trait]
@@ -43,5 +46,33 @@ impl RatingRepository for DBRatingRepository<Postgres> {
             ),
             Err(err) => Err(InternalError::new(err)),
         }
+    }
+
+    async fn list_by_merchant(&self, merchant_id: Uuid) -> Result<ListRatingResponse, InternalError>{
+      
+        let query = r#"
+        SELECT id, rating 
+        FROM ratings 
+        WHERE merchant_id = $1
+     "#;
+
+    let ratings_result = sqlx::query(query)
+        .bind(merchant_id)
+        .fetch_all(&self.pool) 
+        .await
+        .map_err(|err| InternalError {
+            message: format!("Failed to fetch ratings: {}", err),
+        })?;
+
+    let ratings: Vec<Rating> = ratings_result
+        .iter()
+        .map(|row: &PgRow| Rating {
+            rating_id: row.get("id"),
+            rating: row.get("rating"),
+        })
+        .collect();
+
+    Ok(ListRatingResponse { ratings })
+        
     }
 }

@@ -12,3 +12,14 @@ pub struct CreateRatingResponse {
     pub merchant_id: String,
     pub rating: f32,
 }
+
+#[derive(Serialize)]
+pub struct ListRatingResponse {
+    pub ratings: Vec<Rating>,
+}
+
+#[derive(Serialize)]
+pub struct Rating {
+    pub rating_id: String,
+    pub rating: f32,
+}
